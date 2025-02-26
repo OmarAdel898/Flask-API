@@ -45,6 +45,9 @@ def predict_image(image):
     return class_labels[predicted.item()]  # Return class name
 
 # Flask route to handle image uploads
+@app.route("/")
+def home():
+    return "Flask API is running!"
 @app.route("/predict", methods=["POST"])
 def predict():
     if "file" not in request.files:
