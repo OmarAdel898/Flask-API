@@ -2,7 +2,7 @@ from flask_cors import CORS
 import torch
 import torch.nn as nn
 import torchvision.transforms as transforms
-from torchvision import models
+from torchvision.models import resnet50, ResNet50_Weights
 from flask import Flask, request, jsonify
 from PIL import Image
 import io
@@ -10,6 +10,7 @@ import io
 # Initialize Flask app
 app = Flask(__name__)
 CORS(app)
+
 # Define class labels
 class_labels = ['cardboard', 'glass', 'metal', 'paper', 'plastic', 'trash']
 
@@ -23,7 +24,7 @@ transformations = transforms.Compose([
 class ResNet(nn.Module):
     def __init__(self):
         super().__init__()
-        self.network = models.resnet50(pretrained=False)
+        self.network = resnet50(weights=ResNet50_Weights.DEFAULT)  # ✅ Fixed torchvision warning
         num_ftrs = self.network.fc.in_features
         self.network.fc = nn.Linear(num_ftrs, len(class_labels))  # 6 classes
 
@@ -38,29 +39,35 @@ model.eval()
 
 # Prediction function
 def predict_image(image):
-    image = transformations(image).unsqueeze(0).to(device)  # Convert to batch format
-    with torch.no_grad():
-        outputs = model(image)
-        _, predicted = torch.max(outputs, dim=1)
-    return class_labels[predicted.item()]  # Return class name
+    try:
+        image = transformations(image).unsqueeze(0).to(device)  # Convert to batch format
+        with torch.no_grad():
+            outputs = model(image)
+            _, predicted = torch.max(outputs, dim=1)
+        return class_labels[predicted.item()]  # Return class name
+    except Exception as e:
+        return str(e)  # Return error message
 
-# Flask route to handle image uploads
-@app.route("/",methods=["GET"])
+# Flask route to check API status
+@app.route("/", methods=["GET"])
 def home():
     return "Flask API is running!"
+
+# Flask route to handle image uploads
 @app.route("/predict", methods=["POST"])
 def predict():
     if "file" not in request.files:
         return jsonify({"error": "No file uploaded"}), 400
 
     file = request.files["file"]
-    image = Image.open(io.BytesIO(file.read()))
-
-    # Make prediction
-    predicted_class = predict_image(image)
-
-    return jsonify({"predicted_class": predicted_class})
+    
+    try:
+        image = Image.open(io.BytesIO(file.read()))
+        predicted_class = predict_image(image)
+        return jsonify({"predicted_class": predicted_class})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 # Run the Flask app
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=False)  # ✅ Debug is OFF for production
