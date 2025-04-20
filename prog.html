@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Upload and Prediction</title>
+    <style>
+        /* Simple styles for centering content */
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            flex-direction: column;
+        }
+        #canvas {
+            border: 1px solid black;
+        }
+        #result {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>  
+    <h1>Capture Image for Prediction</h1>
+
+    <!-- Video element to show webcam feed -->
+    <video id="video" width="640" height="480" autoplay></video>
+    <button id="captureButton">Capture Image</button>
+    
+    <!-- Canvas to display the captured image -->
+    <canvas id="canvas" style="display:none;"></canvas>
+
+    <!-- Area to display result -->
+    <div id="result"></div>
+
+    <script>
+        // Set up video and canvas
+        const video = document.getElementById('video');
+        const captureButton = document.getElementById('captureButton');
+        const canvas = document.getElementById('canvas');
+        const resultDiv = document.getElementById('result');
+        
+        // Initialize webcam feed
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream => {
+                video.srcObject = stream;
+            })
+            .catch(error => {
+                console.error('Error accessing webcam:', error);
+            });
+
+        // Capture image and send it to the API
+        captureButton.addEventListener('click', () => {
+            // Draw the current frame from video to the canvas
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            // Convert canvas to a Blob object
+            canvas.toBlob((blob) => {
+                // Create a FormData object to send the image as 'file'
+                const formData = new FormData();
+                formData.append('file', blob, 'captured_image.jpg');
+
+                // Log FormData contents to check if the image is appended correctly
+                console.log('FormData:', [...formData]);
+
+                // Send image to the API
+                fetch('http://127.0.0.1:5000/predict', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! Status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Display the result from the API
+                    resultDiv.innerHTML = `<h2>Prediction Result:</h2><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    resultDiv.innerHTML = `<p>Error occurred while sending the image to the API: ${error.message}</p>`;
+                });
+            }, 'image/jpeg');
+        });
+    </script>
+
+</body>
+</html>
