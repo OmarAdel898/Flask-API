@@ -1,0 +1,129 @@
+IP:	192.168.1.7
+	172.20.10.3
+Ping:	1057 ms
+Hostname:	[n/a]
+Ports:	[n/a]
+MAC Vendor:	Raspberry Pi Foundation
+
+important cmds:
+sudo rm /usr/lib/python3.11/EXTERNALLY-MANAGED
+ssh omar@
+scp C:\Users\omare\Desktop\prog.py omar@192.168.1.7:/home/omar/
+omar         460  0.0  0.1   2320  1280 ?        Ss   22:27   0:00 /bin/sh -c /usr/bin/python3 /home/omar/prog.py > /home/omar/prog.log 2>&1
+omar         461  1.0  1.1 175232 10880 ?        Sl   22:27   0:02 /usr/bin/python3 /home/omar/prog.py
+omar        1926  0.0  0.2   6220  1920 pts/0    S+   22:32   0:00 grep --color=auto prog.py
+ps aux | grep prog.py
+kill 461
+or
+pkill -f prog.py
+sudo shutdown -h now
+crontab -l
+
+source smartbin-env/bin/activate
+deactivate
+
+
+Command	Description
+ifconfig or ip a	Show network interfaces
+ping google.com	Test internet connection
+hostname -I	Show Raspberry Pi's local IP address
+curl ifconfig.me	Show public IP address
+netstat -tulnp	Show open network ports
+
+
+
+
+
+import RPi.GPIO as GPIO
+import time
+
+# GPIO setup
+GPIO.setmode(GPIO.BCM)
+
+# Ultrasonic Sensor 1
+TRIG1 = 17
+ECHO1 = 27
+
+# Ultrasonic Sensor 2
+TRIG2 = 22
+ECHO2 = 23
+
+# Servo Motors
+SERVO1 = 18
+SERVO2 = 24
+
+# Configure GPIO
+GPIO.setup(TRIG1, GPIO.OUT)
+GPIO.setup(ECHO1, GPIO.IN)
+GPIO.setup(TRIG2, GPIO.OUT)
+GPIO.setup(ECHO2, GPIO.IN)
+
+GPIO.setup(SERVO1, GPIO.OUT)
+GPIO.setup(SERVO2, GPIO.OUT)
+
+# Setup PWM for servos
+servo1_pwm = GPIO.PWM(SERVO1, 50)  # 50Hz for standard servo motors
+servo2_pwm = GPIO.PWM(SERVO2, 50)  # 50Hz for standard servo motors
+servo1_pwm.start(0)
+servo2_pwm.start(0)
+
+def get_distance(TRIG, ECHO):
+    """
+    Measure distance using HC-SR04 ultrasonic sensor.
+    Returns the distance in centimeters.
+    """
+    GPIO.output(TRIG, False)
+    time.sleep(0.05)  # Short delay to stabilize sensor
+
+    GPIO.output(TRIG, True)
+    time.sleep(0.00001)
+    GPIO.output(TRIG, False)
+
+    start_time = time.time()
+    while GPIO.input(ECHO) == 0:
+        start_time = time.time()
+    while GPIO.input(ECHO) == 1:
+        stop_time = time.time()
+
+    elapsed_time = stop_time - start_time
+    distance = (elapsed_time * 34300) / 2  # Speed of sound = 34300 cm/s
+    return round(distance, 2)
+
+def set_servo_angle(servo_pwm, angle):
+    """
+    Move the specified servo to a given angle (0ï¿½ to 180ï¿½).
+    """
+    duty_cycle = 2 + (angle / 18)  # Convert angle to duty cycle
+    servo_pwm.ChangeDutyCycle(duty_cycle)
+    time.sleep(0.5)  # Allow time for servo to move
+    servo_pwm.ChangeDutyCycle(0)  # Stop PWM to prevent jittering
+
+try:
+    while True:
+        # Measure distances
+        distance1 = get_distance(TRIG1, ECHO1)
+        distance2 = get_distance(TRIG2, ECHO2)
+
+        print(f"Distance 1: {distance1} cm | Distance 2: {distance2} cm")
+
+        # Control Servo 1 based on Sensor 1
+        if distance1 < 10:
+            print("Object detected near Sensor 1! Rotating Servo 1 to 90ï¿½.")
+            set_servo_angle(servo1_pwm, 90)
+        else:
+            set_servo_angle(servo1_pwm, 0)
+
+        # Control Servo 2 based on Sensor 2
+        if distance2 < 10:
+            print("Object detected near Sensor 2! Rotating Servo 2 to 90ï¿½.")
+            set_servo_angle(servo2_pwm, 90)
+        else:
+            set_servo_angle(servo2_pwm, 0)
+
+
+except KeyboardInterrupt:
+    print("Measurement stopped by user.")
+finally:
+    servo1_pwm.stop()
+    servo2_pwm.stop()
+    GPIO.cleanup()

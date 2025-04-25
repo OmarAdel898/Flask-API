@@ -2,3 +2,8 @@ python api.py
 ngrok config add-authtoken 2tttZwuIlP2smUjeS3XIwhweZYR_7F9bSAd7nJraNMa4wL5V4
 ngrok http --url=charmed-strongly-lemur.ngrok-free.app 5000
 https://charmed-strongly-lemur.ngrok-free.app
+
+
+
+source smartbin-env/bin/activate
+deactivate
